@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id              String   @id @default(cuid())
+  discordId       String   @unique
+  discordUsername String
+  discordAvatar   String?
+  createdAt       DateTime @default(now())
+}
+
+model Game {
+  id        String   @id @default(cuid())
+  name      String
+  appId     String   @unique
+  keys      Key[]
+  createdAt DateTime @default(now())
+}
+
+model Key {
+  id        String    @id @default(cuid())
+  key       String    @unique
+  gameId    String
+  game      Game      @relation(fields: [gameId], references: [id])
+  status    KeyStatus @default(AVAILABLE)
+  createdAt DateTime  @default(now())
+}
+
+enum KeyStatus {
+  AVAILABLE
+  USED
+}
