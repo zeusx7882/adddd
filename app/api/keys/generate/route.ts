@@ -4,16 +4,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { Session } from "next-auth";
-
-function isAdmin(session: Session | null) {
-  if (!session?.user) return false;
-  const user = session.user as { id?: string; discordId?: string };
-  return (
-    user.discordId === process.env.ADMIN_DISCORD_ID ||
-    user.id === process.env.ADMIN_DISCORD_ID
-  );
-}
+import { isAdmin } from "@/lib/auth-utils";
 
 function generateKey(prefix: string): string {
   const cleanPrefix = prefix.replace(/[^a-zA-Z0-9]/g, "").substring(0, 8).toUpperCase();
@@ -54,20 +45,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Jogo não encontrado" }, { status: 404 });
   }
 
-  const generatedKeys: string[] = [];
-  const maxAttempts = quantity * 3;
-  let attempts = 0;
+  // Generate candidates with buffer to handle potential collisions
+  const extra = Math.ceil(quantity * 0.5);
+  const candidates = Array.from({ length: quantity + extra }, () => generateKey(game.name));
 
-  while (generatedKeys.length < quantity && attempts < maxAttempts) {
-    attempts++;
-    const candidate = generateKey(game.name);
-    const exists = await prisma.key.findUnique({ where: { key: candidate } });
-    if (!exists) {
-      generatedKeys.push(candidate);
-    }
-  }
+  // Check existing keys in a single query
+  const existingKeys = await prisma.key.findMany({
+    where: { key: { in: candidates } },
+    select: { key: true },
+  });
+  const existingSet = new Set(existingKeys.map((k) => k.key));
 
-  if (generatedKeys.length === 0) {
+  const uniqueCandidates = [...new Set(candidates)].filter((k) => !existingSet.has(k));
+  const toCreate = uniqueCandidates.slice(0, quantity);
+
+  if (toCreate.length === 0) {
     return NextResponse.json(
       { error: "Não foi possível gerar keys únicas. Tente novamente." },
       { status: 500 }
@@ -75,12 +67,12 @@ export async function POST(req: NextRequest) {
   }
 
   await prisma.key.createMany({
-    data: generatedKeys.map((key) => ({ key, gameId: game.id })),
+    data: toCreate.map((key) => ({ key, gameId: game.id })),
   });
 
   return NextResponse.json({
     success: true,
-    generated: generatedKeys.length,
-    keys: generatedKeys,
+    generated: toCreate.length,
+    keys: toCreate,
   });
 }

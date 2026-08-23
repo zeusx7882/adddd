@@ -3,16 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { Session } from "next-auth";
-
-function isAdmin(session: Session | null) {
-  if (!session?.user) return false;
-  const user = session.user as { id?: string; discordId?: string };
-  return (
-    user.discordId === process.env.ADMIN_DISCORD_ID ||
-    user.id === process.env.ADMIN_DISCORD_ID
-  );
-}
+import { isAdmin } from "@/lib/auth-utils";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
