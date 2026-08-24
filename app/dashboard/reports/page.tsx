@@ -86,7 +86,7 @@ export default function ReportsPage() {
                   <p className="text-[#9ca3af] text-sm mt-1">{data.topUser.count} resgate(s)</p>
                 </div>
               ) : (
-                <p className="text-[#6b7280] text-sm">Nenhum resgate ainda.</p>
+                <p className="text-[#9ca3af] text-sm">Nenhum resgate ainda.</p>
               )}
             </CardContent>
           </Card>
@@ -102,7 +102,7 @@ export default function ReportsPage() {
                   <p className="text-[#9ca3af] text-sm mt-1">{data.topGame.count} resgate(s)</p>
                 </div>
               ) : (
-                <p className="text-[#6b7280] text-sm">Nenhum resgate ainda.</p>
+                <p className="text-[#9ca3af] text-sm">Nenhum resgate ainda.</p>
               )}
             </CardContent>
           </Card>
@@ -113,7 +113,7 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent>
               {data.topDays.length === 0 ? (
-                <p className="text-[#6b7280] text-sm">Nenhum resgate ainda.</p>
+                <p className="text-[#9ca3af] text-sm">Nenhum resgate ainda.</p>
               ) : (
                 <div className="space-y-2">
                   {data.topDays.map((day) => (

@@ -38,7 +38,7 @@ function LoginContent() {
           </svg>
           Entrar com Discord
         </Button>
-        <p className="text-center text-xs text-[#6b7280]">
+        <p className="text-center text-xs text-[#9ca3af]">
           Acesso restrito ao administrador autorizado.
         </p>
       </div>

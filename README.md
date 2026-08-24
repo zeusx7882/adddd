@@ -111,6 +111,18 @@ npm start
 - Verifique `ADMIN_DISCORD_IDS` com seu Discord ID (encontre em Discord → Configurações → Avançado → Modo Desenvolvedor → clique com botão direito no seu avatar)
 - Certifique-se que os Redirect URIs estão corretos no Discord Developer Portal
 
+### Erro ao carregar jogos em `/dashboard/games`
+
+- Esse erro normalmente indica problema de sessão/admin ou banco desatualizado.
+- Confirme que o usuário logado está listado em `ADMIN_DISCORD_IDS` (ou `ADMIN_DISCORD_ID` para compatibilidade).
+- Confirme `DATABASE_URL` apontando para o mesmo banco usado pela API externa.
+- Aplique o schema no banco antes do deploy final:
+  ```bash
+  npx prisma generate
+  npx prisma db push
+  ```
+- A rota `/api/games` retorna mensagens de erro detalhadas (sem secrets) para facilitar diagnóstico.
+
 ## OAuth2 do Launcher
 
 O launcher desktop usa um fluxo de autenticação separado:

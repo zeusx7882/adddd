@@ -150,7 +150,7 @@ function KeysList() {
             setSearch(event.target.value);
             setPage(1);
           }}
-          className="max-w-xs bg-[#1a1a1a] border-[#2a2a2a] text-[#f3f4f6] placeholder-[#6b7280]"
+          className="max-w-xs bg-[#1a1a1a] border-[#2a2a2a] text-[#f3f4f6] placeholder-[#9ca3af]"
         />
         <span className="text-sm text-[#9ca3af]">{total} key(s)</span>
         <Button
@@ -166,7 +166,7 @@ function KeysList() {
       <div className="overflow-x-auto rounded-lg border border-[#2a2a2a]">
         <table className="w-full text-sm">
           <thead className="bg-[#1a1a1a]">
-            <tr className="text-left text-[#6b7280]">
+            <tr className="text-left text-[#d1d5db]">
               <th className="px-4 py-3 font-medium">Key</th>
               <th className="px-4 py-3 font-medium">Jogo</th>
               <th className="px-4 py-3 font-medium">App ID</th>
@@ -189,7 +189,7 @@ function KeysList() {
               ))
             ) : keys.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-[#6b7280]">
+                <td colSpan={7} className="px-4 py-8 text-center text-[#9ca3af]">
                   Nenhuma key encontrada.
                 </td>
               </tr>
@@ -205,7 +205,7 @@ function KeysList() {
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-[#9ca3af] text-xs">{key.usedBy ?? "—"}</td>
-                  <td className="px-4 py-3 text-[#6b7280] text-xs">
+                  <td className="px-4 py-3 text-[#9ca3af] text-xs">
                     {key.usedAt ? new Date(key.usedAt).toLocaleDateString("pt-BR") : "—"}
                   </td>
                   <td className="px-4 py-3">
@@ -442,7 +442,7 @@ function GenerateKeys() {
                   <span className="text-[#9ca3af]">{key}</span>
                   <button
                     onClick={() => copyKey(key)}
-                    className="text-xs text-[#6b7280] hover:text-[#3b82f6] ml-4 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="text-xs text-[#9ca3af] hover:text-[#3b82f6] ml-4 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     {copied === key ? "✓" : "Copiar"}
                   </button>
