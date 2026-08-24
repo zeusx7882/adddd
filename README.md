@@ -1,247 +1,126 @@
 # Free Drop Keys — Admin Panel
 
-Painel administrativo para cadastro de jogos e geração de keys. Acesso exclusivo via Discord OAuth2.
+Painel administrativo para geração e gerenciamento de activation keys de jogos, com autenticação Discord OAuth2.
 
-## Stack
+## Configuração do Discord Developer Portal
 
-- Next.js 16 (App Router) + TypeScript
-- TailwindCSS
-- NextAuth.js (Discord provider)
-- Prisma + PostgreSQL (servidor/admin apenas)
-- API externa de keys: `https://byzeuskeys.shardweb.app`
+1. Acesse https://discord.com/developers/applications
+2. Selecione a aplicação **1540905020793290752**
+3. Vá em **OAuth2 → General**
+4. Em **Redirects**, adicione EXATAMENTE:
+   ```
+   https://laucherfreedrop.shardweb.app/api/auth/callback/launcher
+   https://laucherfreedrop.shardweb.app/api/auth/callback/discord
+   ```
+5. Em **OAuth2 → Client Secret**, clique em **Reset Secret** para gerar um novo segredo (o anterior foi exposto e deve ser revogado)
+6. Copie o novo **Client Secret** para a variável `DISCORD_CLIENT_SECRET`
 
-## Arquitetura de segurança
+## Variáveis de Ambiente
 
-| Camada | Acesso ao banco | Acesso à API externa |
-|---|---|---|
-| Componentes client-side (`"use client"`) | ❌ Nunca | Via rotas internas `/api/keys/*` |
-| Rotas de API Next.js (`/api/games`, `/api/keys/generate`) | ✅ Servidor apenas | — |
-| `/api/keys/check` e `/api/keys/validate` | ❌ | ✅ Proxy para API externa |
+Copie `.env.example` para `.env` e preencha:
 
-A variável `DATABASE_URL` **nunca** é exposta ao navegador. Apenas `NEXT_PUBLIC_API_BASE_URL` (sem segredo) pode aparecer no bundle cliente.
+| Variável | Descrição |
+|---|---|
+| `DATABASE_URL` | PostgreSQL. Use o **mesmo valor** no admin e na API |
+| `NEXTAUTH_URL` | URL pública do painel (ex: `https://laucherfreedrop.shardweb.app`) |
+| `NEXTAUTH_SECRET` | Gere com: `openssl rand -base64 32` |
+| `DISCORD_CLIENT_ID` | `1540905020793290752` |
+| `DISCORD_CLIENT_SECRET` | Gere novo no Discord Developer Portal |
+| `ADMIN_DISCORD_IDS` | Discord IDs dos admins separados por vírgula |
+| `NEXT_PUBLIC_API_BASE_URL` | `https://byzeuskeys.shardweb.app` |
 
-## Endpoints externos utilizados
+## Deploy na Shard Cloud
 
-| Método | Endpoint | Ação |
-|---|---|---|
-| `POST` | `/api/keys/check` | Consulta key **sem consumir** |
-| `POST` | `/api/keys/validate` | Valida e **consome** key |
+### Configuração recomendada
 
-Body de ambos: `{ "key": "..." }`
+- **Linguagem**: Node.js
+- **Arquivo de entrada**: `index.js`
+- **Memória**: 2048 MB (mínimo para o build)
 
-## Limitação administrativa (documentada)
+### Se houver campo de Build separado:
 
-O painel ainda usa Prisma/PostgreSQL no servidor para cadastrar jogos e gerar keys, pois a API externa (`byzeuskeys.shardweb.app`) não expõe endpoints administrativos de criação de jogos ou geração de keys. Enquanto esses endpoints não existirem na API externa, as operações administrativas continuam no banco local — **exclusivamente no servidor, sem exposição ao browser**. Os únicos endpoints de keys que o browser pode acionar são `/api/keys/check` e `/api/keys/validate`, que fazem proxy para a API externa.
-
-Para remover o Prisma completamente, a API externa precisaria disponibilizar:
-- `POST /api/admin/games` — cadastrar jogo
-- `GET /api/admin/games` — listar jogos
-- `POST /api/admin/keys/generate` — gerar keys
-
-## Configuração
-
-### 1) Variáveis de ambiente
-
-Copie `.env.example` para `.env.local` e preencha para desenvolvimento local:
-
-```bash
-cp .env.example .env.local
+```
+Build: npm run build
+Start: npm start
 ```
 
-| Variável | Valor para produção (Shard Cloud) |
-|---|---|
-| `NEXT_PUBLIC_API_BASE_URL` | `https://byzeuskeys.shardweb.app` |
-| `DATABASE_URL` | String PostgreSQL **apenas no servidor** (admin) |
-| `NEXTAUTH_URL` | `https://laucherfreedrop.shardweb.app` |
-| `NEXTAUTH_SECRET` | Gere um segredo **novo e privado** (`openssl rand -base64 32`) |
-| `DISCORD_CLIENT_ID` | Client ID do app Discord |
-| `DISCORD_CLIENT_SECRET` | Client Secret do app Discord |
-| `LAUNCHER_DISCORD_REDIRECT_URI` | Opcional. Padrão: `https://laucherfreedrop.shardweb.app/api/auth/callback/launcher` |
-| `ADMIN_DISCORD_ID` | Discord ID do administrador autorizado |
+### Se houver apenas Comando de Inicialização:
 
-> Não comite `.env`, senhas ou tokens. Use apenas placeholders no `.env.example`.
->
-> **Segurança:** se algum `DISCORD_CLIENT_SECRET` já foi exposto em chat, README, logs ou prints, revogue-o e gere outro no Discord Developer Portal antes do deploy.
+```
+npm run build && npm start
+```
 
-### 2) Configurar Discord OAuth2
+### Variável de ambiente adicional (para build com 2048 MB):
 
-No [Discord Developer Portal](https://discord.com/developers/applications), configure o redirect URI de produção:
+```
+NODE_OPTIONS=--max-old-space-size=1536
+```
 
-`https://laucherfreedrop.shardweb.app/api/auth/callback/discord`
+> **Importante**: Execute `npx prisma generate && npx prisma db push` **antes** do primeiro deploy, ou adicione ao script de build.
 
-Para o launcher desktop, adicione também:
+## Banco de Dados (Prisma)
 
-`https://laucherfreedrop.shardweb.app/api/auth/callback/launcher`
+```bash
+# Gerar cliente Prisma
+npx prisma generate
 
-### 3) Instalar dependências (local)
+# Aplicar schema ao banco (sem destruir dados)
+npx prisma db push
+
+# Visualizar banco de dados
+npx prisma studio
+```
+
+## Desenvolvimento local
 
 ```bash
 npm install
-```
-
-### 4) Banco (somente servidor/admin)
-
-```bash
+cp .env.example .env
+# Edite .env com suas configurações
 npx prisma generate
 npx prisma db push
-```
-
-### 5) Desenvolvimento local
-
-```bash
 npm run dev
 ```
 
----
+## Troubleshooting
 
-## Deploy na Shard Cloud (`https://laucherfreedrop.shardweb.app`)
+### OUT_OF_MEMORY durante build
 
-### O que deve ir no ZIP
+- Aumente a memória para **2048 MB** ou mais
+- Adicione `NODE_OPTIONS=--max-old-space-size=1536` nas variáveis de ambiente
+- Use `npm run build -- --webpack` para usar Webpack em vez de Turbopack
 
-Envie os fontes do projeto com os arquivos de runtime/configuração, incluindo:
+### 502 Bad Gateway
 
-- `index.js` (Entry Point)
-- `package.json` e `package-lock.json`
-- `app/`, `components/`, `lib/`, `public/`, `types/`
-- `prisma/`, `next.config.ts`, `tsconfig.json`, `postcss.config.mjs`, etc.
+- Verifique se o build foi concluído com `✓ Compiled successfully`
+- O servidor precisa de `npm run build` antes de `npm start`
+- Verifique se `DATABASE_URL` está configurado corretamente
 
-Se a Shard Cloud fizer instalação/build no servidor, **não envie**:
+### Acesso negado no login
 
-- `node_modules/`
-- `.next/`
-- `.env` real com segredos
+- Verifique `ADMIN_DISCORD_IDS` com seu Discord ID (encontre em Discord → Configurações → Avançado → Modo Desenvolvedor → clique com botão direito no seu avatar)
+- Certifique-se que os Redirect URIs estão corretos no Discord Developer Portal
 
-### Campos do painel (preencher exatamente)
+## OAuth2 do Launcher
 
-- **Entry Point:** `index.js`
-- **Install command:** `npm install --no-audit --no-fund`
-- **Build command:** `npm run build`
-- **Start command:** `npm start`
+O launcher desktop usa um fluxo de autenticação separado:
 
-O script `start` usa `index.js` para iniciar `next start` em produção, ouvindo em `0.0.0.0` e respeitando `PORT` da plataforma (fallback seguro: `3000`).
+1. Launcher abre o navegador com URL OAuth2 do Discord
+2. Usuário autoriza
+3. Discord redireciona para `/api/auth/callback/launcher?code=...&state=...`
+4. O endpoint troca o código por token e armazena temporariamente (5 min) na memória
+5. Launcher faz polling em `/api/launcher/auth-status?state=...` a cada 2 segundos
+6. Quando disponível, retorna o token e apaga o registro
 
-### Variáveis de ambiente na Shard Cloud
+> **Nota**: O armazenamento em memória não persiste entre reinicializações do servidor. Em produção com múltiplas instâncias, use Redis ou banco de dados. Documente isso no seu setup.
 
-```env
-NEXTAUTH_URL=https://laucherfreedrop.shardweb.app
-NEXTAUTH_SECRET=<gere-um-segredo-novo-e-privado>
-DISCORD_CLIENT_ID=<seu-client-id>
-DISCORD_CLIENT_SECRET=<seu-client-secret>
-LAUNCHER_DISCORD_REDIRECT_URI=https://laucherfreedrop.shardweb.app/api/auth/callback/launcher
-ADMIN_DISCORD_ID=<seu-discord-id-admin>
-NEXT_PUBLIC_API_BASE_URL=https://byzeuskeys.shardweb.app
-DATABASE_URL=<somente-se-o-painel-admin-usar-banco-no-servidor>
-```
+## Rate Limiting
 
-> `NEXTAUTH_SECRET` deve ser novo e privado.  
-> Não exponha `DATABASE_URL`, `DISCORD_CLIENT_SECRET` ou outros segredos no cliente.
-> Se o `DISCORD_CLIENT_SECRET` já tiver sido exposto, revogue/rotacione no Discord Developer Portal antes de subir a aplicação.
+A geração de keys tem limite de 10 requisições por minuto por admin (implementado em memória, sem Redis). Este limite se reinicia ao reiniciar o servidor.
 
-### Configuração exata na Shard Cloud
+## Segurança
 
-Use exatamente:
-
-- **Entry Point:** `index.js`
-- **Install command:** `npm install --no-audit --no-fund`
-- **Build command:** `npm run build`
-- **Start command:** `npm start`
-
-Cadastre estas variáveis de ambiente:
-
-```env
-NEXTAUTH_URL=https://laucherfreedrop.shardweb.app
-NEXTAUTH_SECRET=<gere-um-segredo-novo-e-privado>
-DISCORD_CLIENT_ID=<client-id-do-discord>
-DISCORD_CLIENT_SECRET=<client-secret-novo-e-privado>
-LAUNCHER_DISCORD_REDIRECT_URI=https://laucherfreedrop.shardweb.app/api/auth/callback/launcher
-ADMIN_DISCORD_ID=<discord-id-do-admin>
-NEXT_PUBLIC_API_BASE_URL=https://byzeuskeys.shardweb.app
-DATABASE_URL=<somente-se-o-painel-admin-usar-banco-no-servidor>
-```
-
-No Discord Developer Portal, deixe cadastrados os dois Redirect URIs:
-
-- `https://laucherfreedrop.shardweb.app/api/auth/callback/discord`
-- `https://laucherfreedrop.shardweb.app/api/auth/callback/launcher`
-
----
-
-## OAuth2 do launcher desktop
-
-### Endpoints
-
-#### Callback público
-
-- `GET /api/auth/callback/launcher?code=...&state=...`
-- Troca `code` por token em `https://discord.com/api/oauth2/token`
-- Não verifica admin e não redireciona para o painel
-- Responde HTML simples quando a autenticação termina
-
-#### Polling do launcher
-
-- `GET /api/launcher/auth-status?state=...`
-- Sempre responde com headers `no-store`
-- Remove o registro temporário após entregar o token
-
-### Fluxo de polling
-
-1. O launcher gera `state` e abre o navegador para o Discord OAuth2.
-2. O usuário autoriza.
-3. O Discord redireciona para `https://laucherfreedrop.shardweb.app/api/auth/callback/launcher`.
-4. O callback troca o `code` por token e salva o resultado temporariamente por 5 minutos.
-5. O navegador mostra `✅ Autenticação concluída! Volte para o launcher.`
-6. O launcher faz polling em `/api/launcher/auth-status?state=...`.
-7. Quando o token estiver disponível, a API responde e apaga o registro.
-
-### Respostas de exemplo
-
-Quando o launcher ainda está aguardando:
-
-```json
-{ "status": "pending" }
-```
-
-Quando a autenticação já terminou:
-
-```json
-{
-  "status": "completed",
-  "token": {
-    "accessToken": "discord-access-token",
-    "refreshToken": "discord-refresh-token",
-    "expiresIn": 604800
-  }
-}
-```
-
-### Limitação do armazenamento temporário
-
-O fluxo do launcher usa armazenamento temporário **apenas em memória do processo Node.js**, com TTL de 5 minutos e consumo único lógico. Isso simplifica o deploy, mas significa que o token pendente é perdido se o processo reiniciar, escalar horizontalmente para outra instância ou sofrer novo deploy antes de o launcher concluir o polling.
-
-### Troubleshooting de `502 Bad Gateway`
-
-1. Confirme se o processo está online após o deploy.
-2. Verifique logs de inicialização: o app deve iniciar com `npm start`.
-3. Garanta que o servidor está ouvindo em `0.0.0.0` (já configurado em `index.js`).
-4. Garanta que a porta vem de `PORT` da plataforma (não fixar 80 se a plataforma fornecer outra).
-5. Confirme que o build (`npm run build`) terminou sem erro antes do start.
-6. Se ainda falhar, revise logs da aplicação/proxy da Shard Cloud para conexão recusada ou processo encerrado.
-
-## Comandos úteis
-
-```bash
-npm run dev    # Desenvolvimento
-npm run build  # Build de produção
-npm start      # Produção (via index.js -> next start)
-npm run lint   # Lint
-npm test       # Testes
-```
-
-## Funcionalidades
-
-- **Login** via Discord (somente o admin autorizado)
-- **Jogos**: cadastrar e listar jogos com nome e Steam App ID
-- **Keys**: gerar de 1 a 100 keys criptograficamente seguras por jogo
-- **Check de key**: consulta key na API externa sem consumi-la (`/api/keys/check`)
-- **Validação de key**: valida e consome key na API externa (`/api/keys/validate`)
-- Proteção de rotas via middleware + verificação server-side
+- Nunca commite o arquivo `.env`
+- Nunca exponha `DATABASE_URL`, `NEXTAUTH_SECRET` ou `DISCORD_CLIENT_SECRET`
+- Todas as rotas admin verificam autenticação no servidor
+- Logs de auditoria são salvos no banco para criação/exclusão de keys
