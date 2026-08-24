@@ -40,59 +40,111 @@ Para remover o Prisma completamente, a API externa precisaria disponibilizar:
 
 ## Configuração
 
-### 1. Variáveis de ambiente
+### 1) Variáveis de ambiente
 
-Copie `.env.example` para `.env.local` e preencha:
+Copie `.env.example` para `.env.local` e preencha para desenvolvimento local:
 
 ```bash
 cp .env.example .env.local
 ```
 
-| Variável | Descrição |
+| Variável | Valor para produção (Shard Cloud) |
 |---|---|
-| `NEXT_PUBLIC_API_BASE_URL` | URL pública da API externa (sem segredo) |
-| `DATABASE_URL` | Connection string PostgreSQL (servidor apenas) |
-| `NEXTAUTH_URL` | URL base da aplicação (ex: `http://localhost:3000`) |
-| `NEXTAUTH_SECRET` | Segredo aleatório (`openssl rand -base64 32`) |
+| `NEXT_PUBLIC_API_BASE_URL` | `https://byzeuskeys.shardweb.app` |
+| `DATABASE_URL` | String PostgreSQL **apenas no servidor** (admin) |
+| `NEXTAUTH_URL` | `https://laucherfreedrop.shardweb.app` |
+| `NEXTAUTH_SECRET` | Gere um segredo **novo e privado** (`openssl rand -base64 32`) |
 | `DISCORD_CLIENT_ID` | Client ID do app Discord |
 | `DISCORD_CLIENT_SECRET` | Client Secret do app Discord |
-| `ADMIN_DISCORD_ID` | Seu Discord ID (único autorizado) |
+| `ADMIN_DISCORD_ID` | Discord ID do administrador autorizado |
 
-### 2. Configurar Discord OAuth2
+> Não comite `.env`, senhas ou tokens. Use apenas placeholders no `.env.example`.
 
-1. Acesse [Discord Developer Portal](https://discord.com/developers/applications)
-2. Crie um aplicativo → seção **OAuth2**
-3. Adicione redirect URL: `http://localhost:3000/api/auth/callback/discord`
-4. Copie Client ID e Client Secret para `.env.local`
+### 2) Configurar Discord OAuth2
 
-### 3. Instalar dependências
+No [Discord Developer Portal](https://discord.com/developers/applications), configure o redirect URI de produção:
+
+`https://laucherfreedrop.shardweb.app/api/auth/callback/discord`
+
+### 3) Instalar dependências (local)
 
 ```bash
 npm install
 ```
 
-### 4. Banco de dados
+### 4) Banco (somente servidor/admin)
 
 ```bash
 npx prisma generate
 npx prisma db push
 ```
 
-### 5. Executar
+### 5) Desenvolvimento local
 
 ```bash
 npm run dev
 ```
 
-Acesse [http://localhost:3000](http://localhost:3000) — será redirecionado para `/login`.
+---
 
-## Comandos
+## Deploy na Shard Cloud (`https://laucherfreedrop.shardweb.app`)
+
+### O que deve ir no ZIP
+
+Envie os fontes do projeto com os arquivos de runtime/configuração, incluindo:
+
+- `index.js` (Entry Point)
+- `package.json` e `package-lock.json`
+- `app/`, `components/`, `lib/`, `public/`, `types/`
+- `prisma/`, `next.config.ts`, `tsconfig.json`, `postcss.config.mjs`, etc.
+
+Se a Shard Cloud fizer instalação/build no servidor, **não envie**:
+
+- `node_modules/`
+- `.next/`
+- `.env` real com segredos
+
+### Campos do painel (preencher exatamente)
+
+- **Entry Point:** `index.js`
+- **Install command:** `npm install --no-audit --no-fund`
+- **Build command:** `npm run build`
+- **Start command:** `npm start`
+
+O script `start` usa `index.js` para iniciar `next start` em produção, ouvindo em `0.0.0.0` e respeitando `PORT` da plataforma (fallback seguro: `3000`).
+
+### Variáveis de ambiente na Shard Cloud
+
+```env
+NEXTAUTH_URL=https://laucherfreedrop.shardweb.app
+NEXTAUTH_SECRET=<gere-um-segredo-novo-e-privado>
+DISCORD_CLIENT_ID=<seu-client-id>
+DISCORD_CLIENT_SECRET=<seu-client-secret>
+ADMIN_DISCORD_ID=<seu-discord-id-admin>
+NEXT_PUBLIC_API_BASE_URL=https://byzeuskeys.shardweb.app
+DATABASE_URL=<somente-se-o-painel-admin-usar-banco-no-servidor>
+```
+
+> `NEXTAUTH_SECRET` deve ser novo e privado.  
+> Não exponha `DATABASE_URL`, `DISCORD_CLIENT_SECRET` ou outros segredos no cliente.
+
+### Troubleshooting de `502 Bad Gateway`
+
+1. Confirme se o processo está online após o deploy.
+2. Verifique logs de inicialização: o app deve iniciar com `npm start`.
+3. Garanta que o servidor está ouvindo em `0.0.0.0` (já configurado em `index.js`).
+4. Garanta que a porta vem de `PORT` da plataforma (não fixar 80 se a plataforma fornecer outra).
+5. Confirme que o build (`npm run build`) terminou sem erro antes do start.
+6. Se ainda falhar, revise logs da aplicação/proxy da Shard Cloud para conexão recusada ou processo encerrado.
+
+## Comandos úteis
 
 ```bash
-npm run dev        # Desenvolvimento
-npm run build      # Build de produção
-npm run lint       # Lint
-npx prisma studio  # Interface visual do banco
+npm run dev    # Desenvolvimento
+npm run build  # Build de produção
+npm start      # Produção (via index.js -> next start)
+npm run lint   # Lint
+npm test       # Testes
 ```
 
 ## Funcionalidades
