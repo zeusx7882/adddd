@@ -36,27 +36,35 @@ Copie `.env.example` para `.env` e preencha:
 - **Linguagem**: Node.js
 - **Arquivo de entrada**: `index.js`
 - **Memória**: 2048 MB (mínimo para o build)
+- **NÃO** use rótulos no comando (não escreva `Build:`/`Start:` no campo).
 
-### Se houver campo de Build separado:
-
-```
-Build: npm run build
-Start: npm start
-```
-
-### Se houver apenas Comando de Inicialização:
+### Se houver Build/Start separados (preferido)
 
 ```
-npm run build && npm start
+Build command: npm run build
+Start command: npm start
 ```
 
-### Variável de ambiente adicional (para build com 2048 MB):
+### Se houver apenas UM comando de inicialização (Shard com campo único)
+
+```
+npm start
+```
+
+`npm start` usa `index.js` e:
+- inicia o Next em `0.0.0.0:$PORT`;
+- só roda build em runtime se `.next/BUILD_ID` não existir (idempotente);
+- evita rebuild desnecessário em restarts do mesmo ambiente.
+
+> Se sua plataforma já executa build em etapa separada, mantenha isso (mais rápido e estável).
+
+### Variável de ambiente adicional (build com 2048 MB)
 
 ```
 NODE_OPTIONS=--max-old-space-size=1536
 ```
 
-> **Importante**: Rode `npx prisma generate` antes do build em ambiente limpo.  
+> **Importante**: O script `npm run build` já executa `prisma generate && next build`.  
 > Use `npx prisma db push` **somente** com `DATABASE_URL` configurada e apontando para o **mesmo banco da API**.
 
 ## Banco de Dados (Prisma)
@@ -103,8 +111,9 @@ npm start
 ### 502 Bad Gateway
 
 - Verifique se o build foi concluído com `✓ Compiled successfully`
-- O servidor precisa de `npm run build` antes de `npm start`
+- Em campo único da Shard, use apenas `npm start` (não `npm run build && npm start`)
 - Verifique se `DATABASE_URL` está configurado corretamente
+- Teste `/api/health` para confirmar processo ativo sem expor secrets
 
 ### Acesso negado no login
 

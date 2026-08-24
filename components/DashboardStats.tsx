@@ -19,12 +19,26 @@ interface StatsData {
 export function DashboardStats() {
   const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/dashboard/stats")
-      .then((response) => response.json())
-      .then(setData)
-      .finally(() => setLoading(false));
+    const load = async () => {
+      try {
+        const response = await fetch("/api/dashboard/stats");
+        const json = await response.json().catch(() => null);
+        if (!response.ok) {
+          setError(json?.error ?? "Erro ao carregar estatísticas.");
+          return;
+        }
+        setData(json);
+      } catch {
+        setError("Erro ao carregar estatísticas.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
   }, []);
 
   if (loading) {
@@ -42,7 +56,7 @@ export function DashboardStats() {
     );
   }
 
-  if (!data) return <p className="text-[#9ca3af]">Erro ao carregar estatísticas.</p>;
+  if (!data) return <p className="text-[#9ca3af]">{error ?? "Erro ao carregar estatísticas."}</p>;
 
   const maxGenerated = Math.max(...data.chart.map((chartItem) => chartItem.generated), 1);
 
