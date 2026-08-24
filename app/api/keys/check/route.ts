@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const result = await checkKey(key);
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: result.status || 400 });
+    return NextResponse.json({ error: result.message }, { status: result.status > 0 ? result.status : 502 });
   }
 
   return NextResponse.json(result.data);

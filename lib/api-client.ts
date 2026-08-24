@@ -76,28 +76,27 @@ async function callApi<T>(
   }
 }
 
-export interface CheckResult {
+export interface KeyResult {
   valid: boolean;
   message?: string;
   game?: { name: string; appId: string };
 }
 
-export interface ValidateResult {
-  valid: boolean;
-  message?: string;
-  game?: { name: string; appId: string };
-}
+/** @deprecated Use KeyResult */
+export type CheckResult = KeyResult;
+/** @deprecated Use KeyResult */
+export type ValidateResult = KeyResult;
 
 /**
  * Consult a key WITHOUT consuming it.
  * Maps to POST /api/keys/check on the external API.
  */
-export async function checkKey(key: string): Promise<ApiResult<CheckResult>> {
+export async function checkKey(key: string): Promise<ApiResult<KeyResult>> {
   const trimmed = key.trim();
   if (!trimmed) {
     return { ok: false, status: 400, message: "Digite uma key válida." };
   }
-  return callApi<CheckResult>("/api/keys/check", { key: trimmed });
+  return callApi<KeyResult>("/api/keys/check", { key: trimmed });
 }
 
 /**
@@ -105,10 +104,10 @@ export async function checkKey(key: string): Promise<ApiResult<CheckResult>> {
  * Maps to POST /api/keys/validate on the external API.
  * Only call this when the action genuinely intends to consume the key.
  */
-export async function validateKey(key: string): Promise<ApiResult<ValidateResult>> {
+export async function validateKey(key: string): Promise<ApiResult<KeyResult>> {
   const trimmed = key.trim();
   if (!trimmed) {
     return { ok: false, status: 400, message: "Digite uma key válida." };
   }
-  return callApi<ValidateResult>("/api/keys/validate", { key: trimmed });
+  return callApi<KeyResult>("/api/keys/validate", { key: trimmed });
 }
