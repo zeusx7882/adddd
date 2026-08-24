@@ -1,9 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  experimental: {
-    webpackBuildWorker: false,
-  },
+  turbopack: {},
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.optimization = {

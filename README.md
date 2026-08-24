@@ -56,7 +56,8 @@ npm run build && npm start
 NODE_OPTIONS=--max-old-space-size=1536
 ```
 
-> **Importante**: Execute `npx prisma generate && npx prisma db push` **antes** do primeiro deploy, ou adicione ao script de build.
+> **Importante**: Rode `npx prisma generate` antes do build em ambiente limpo.  
+> Use `npx prisma db push` **somente** com `DATABASE_URL` configurada e apontando para o **mesmo banco da API**.
 
 ## Banco de Dados (Prisma)
 
@@ -64,7 +65,7 @@ NODE_OPTIONS=--max-old-space-size=1536
 # Gerar cliente Prisma
 npx prisma generate
 
-# Aplicar schema ao banco (sem destruir dados)
+# Aplicar schema ao banco (sem destruir dados) - somente com DATABASE_URL correta
 npx prisma db push
 
 # Visualizar banco de dados
@@ -82,13 +83,22 @@ npx prisma db push
 npm run dev
 ```
 
+### Comandos para build/deploy (Windows CMD e Shard Cloud)
+
+```cmd
+npm install
+npx prisma generate
+npm run build
+npm start
+```
+
 ## Troubleshooting
 
 ### OUT_OF_MEMORY durante build
 
 - Aumente a memória para **2048 MB** ou mais
 - Adicione `NODE_OPTIONS=--max-old-space-size=1536` nas variáveis de ambiente
-- Use `npm run build -- --webpack` para usar Webpack em vez de Turbopack
+- Use `npm run build` (o script já gera Prisma Client antes do `next build`)
 
 ### 502 Bad Gateway
 
