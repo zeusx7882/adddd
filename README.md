@@ -56,15 +56,22 @@ cp .env.example .env.local
 | `NEXTAUTH_SECRET` | Gere um segredo **novo e privado** (`openssl rand -base64 32`) |
 | `DISCORD_CLIENT_ID` | Client ID do app Discord |
 | `DISCORD_CLIENT_SECRET` | Client Secret do app Discord |
+| `LAUNCHER_DISCORD_REDIRECT_URI` | Opcional. Padrão: `https://laucherfreedrop.shardweb.app/api/auth/callback/launcher` |
 | `ADMIN_DISCORD_ID` | Discord ID do administrador autorizado |
 
 > Não comite `.env`, senhas ou tokens. Use apenas placeholders no `.env.example`.
+>
+> **Segurança:** se algum `DISCORD_CLIENT_SECRET` já foi exposto em chat, README, logs ou prints, revogue-o e gere outro no Discord Developer Portal antes do deploy.
 
 ### 2) Configurar Discord OAuth2
 
 No [Discord Developer Portal](https://discord.com/developers/applications), configure o redirect URI de produção:
 
 `https://laucherfreedrop.shardweb.app/api/auth/callback/discord`
+
+Para o launcher desktop, adicione também:
+
+`https://laucherfreedrop.shardweb.app/api/auth/callback/launcher`
 
 ### 3) Instalar dependências (local)
 
@@ -120,6 +127,7 @@ NEXTAUTH_URL=https://laucherfreedrop.shardweb.app
 NEXTAUTH_SECRET=<gere-um-segredo-novo-e-privado>
 DISCORD_CLIENT_ID=<seu-client-id>
 DISCORD_CLIENT_SECRET=<seu-client-secret>
+LAUNCHER_DISCORD_REDIRECT_URI=https://laucherfreedrop.shardweb.app/api/auth/callback/launcher
 ADMIN_DISCORD_ID=<seu-discord-id-admin>
 NEXT_PUBLIC_API_BASE_URL=https://byzeuskeys.shardweb.app
 DATABASE_URL=<somente-se-o-painel-admin-usar-banco-no-servidor>
@@ -127,6 +135,88 @@ DATABASE_URL=<somente-se-o-painel-admin-usar-banco-no-servidor>
 
 > `NEXTAUTH_SECRET` deve ser novo e privado.  
 > Não exponha `DATABASE_URL`, `DISCORD_CLIENT_SECRET` ou outros segredos no cliente.
+> Se o `DISCORD_CLIENT_SECRET` já tiver sido exposto, revogue/rotacione no Discord Developer Portal antes de subir a aplicação.
+
+### Configuração exata na Shard Cloud
+
+Use exatamente:
+
+- **Entry Point:** `index.js`
+- **Install command:** `npm install --no-audit --no-fund`
+- **Build command:** `npm run build`
+- **Start command:** `npm start`
+
+Cadastre estas variáveis de ambiente:
+
+```env
+NEXTAUTH_URL=https://laucherfreedrop.shardweb.app
+NEXTAUTH_SECRET=<gere-um-segredo-novo-e-privado>
+DISCORD_CLIENT_ID=<client-id-do-discord>
+DISCORD_CLIENT_SECRET=<client-secret-novo-e-privado>
+LAUNCHER_DISCORD_REDIRECT_URI=https://laucherfreedrop.shardweb.app/api/auth/callback/launcher
+ADMIN_DISCORD_ID=<discord-id-do-admin>
+NEXT_PUBLIC_API_BASE_URL=https://byzeuskeys.shardweb.app
+DATABASE_URL=<somente-se-o-painel-admin-usar-banco-no-servidor>
+```
+
+No Discord Developer Portal, deixe cadastrados os dois Redirect URIs:
+
+- `https://laucherfreedrop.shardweb.app/api/auth/callback/discord`
+- `https://laucherfreedrop.shardweb.app/api/auth/callback/launcher`
+
+---
+
+## OAuth2 do launcher desktop
+
+### Endpoints
+
+#### Callback público
+
+- `GET /api/auth/callback/launcher?code=...&state=...`
+- Troca `code` por token em `https://discord.com/api/oauth2/token`
+- Não verifica admin e não redireciona para o painel
+- Responde HTML simples quando a autenticação termina
+
+#### Polling do launcher
+
+- `GET /api/launcher/auth-status?state=...`
+- Sempre responde com headers `no-store`
+- Remove o registro temporário após entregar o token
+
+### Fluxo de polling
+
+1. O launcher gera `state` e abre o navegador para o Discord OAuth2.
+2. O usuário autoriza.
+3. O Discord redireciona para `https://laucherfreedrop.shardweb.app/api/auth/callback/launcher`.
+4. O callback troca o `code` por token e salva o resultado temporariamente por 5 minutos.
+5. O navegador mostra `✅ Autenticação concluída! Volte para o launcher.`
+6. O launcher faz polling em `/api/launcher/auth-status?state=...`.
+7. Quando o token estiver disponível, a API responde e apaga o registro.
+
+### Respostas de exemplo
+
+Quando o launcher ainda está aguardando:
+
+```json
+{ "status": "pending" }
+```
+
+Quando a autenticação já terminou:
+
+```json
+{
+  "status": "completed",
+  "token": {
+    "accessToken": "discord-access-token",
+    "refreshToken": "discord-refresh-token",
+    "expiresIn": 604800
+  }
+}
+```
+
+### Limitação do armazenamento temporário
+
+O fluxo do launcher usa armazenamento temporário **apenas em memória do processo Node.js**, com TTL de 5 minutos e consumo único lógico. Isso simplifica o deploy, mas significa que o token pendente é perdido se o processo reiniciar, escalar horizontalmente para outra instância ou sofrer novo deploy antes de o launcher concluir o polling.
 
 ### Troubleshooting de `502 Bad Gateway`
 
