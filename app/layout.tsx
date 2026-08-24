@@ -7,10 +7,12 @@ export const metadata: Metadata = {
   description: "Painel administrativo Free Drop Keys",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pt-BR" className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-gray-50 font-sans">
+    <html lang="pt-BR" className="dark">
+      <body className="antialiased bg-[#0a0a0a] text-[#f3f4f6]">
         <SessionProviderWrapper>{children}</SessionProviderWrapper>
       </body>
     </html>

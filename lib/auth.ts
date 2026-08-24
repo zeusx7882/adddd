@@ -1,6 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
 import { prisma } from "@/lib/prisma";
+import { getAdminIds } from "@/lib/auth-utils";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -11,15 +12,16 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ profile }) {
-      const discordProfile = profile as {
-        id: string;
-        username: string;
-        avatar?: string;
-      } | undefined;
+      const discordProfile =
+        (profile as {
+          id: string;
+          username: string;
+          avatar?: string;
+        } | undefined);
 
-      if (!discordProfile || discordProfile.id !== process.env.ADMIN_DISCORD_ID) {
-        return false;
-      }
+      if (!discordProfile) return false;
+      const adminIds = getAdminIds();
+      if (!adminIds.includes(discordProfile.id)) return false;
 
       await prisma.admin.upsert({
         where: { discordId: discordProfile.id },

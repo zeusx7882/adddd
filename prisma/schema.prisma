@@ -19,20 +19,29 @@ model Game {
   id        String   @id @default(cuid())
   name      String
   appId     String   @unique
-  keys      Key[]
+  imageUrl  String?
   createdAt DateTime @default(now())
 }
 
-model Key {
-  id        String    @id @default(cuid())
-  key       String    @unique
-  gameId    String
-  game      Game      @relation(fields: [gameId], references: [id])
-  status    KeyStatus @default(AVAILABLE)
-  createdAt DateTime  @default(now())
+model ActivationKey {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  appId     String
+  gameName  String?
+  used      Boolean  @default(false)
+  usedBy    String?
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@map("activation_keys")
 }
 
-enum KeyStatus {
-  AVAILABLE
-  USED
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  details   String
+  adminId   String
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
 }
