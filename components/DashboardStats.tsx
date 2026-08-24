@@ -85,7 +85,7 @@ export function DashboardStats() {
                     title={`Usadas: ${chartItem.used}`}
                   />
                 </div>
-                <span className="text-[10px] text-[#6b7280]">{chartItem.date.slice(5)}</span>
+                <span className="text-[10px] text-[#9ca3af]">{chartItem.date.slice(5)}</span>
               </div>
             ))}
           </div>
@@ -106,12 +106,12 @@ export function DashboardStats() {
         </CardHeader>
         <CardContent>
           {data.recentRedemptions.length === 0 ? (
-            <p className="text-[#6b7280] text-sm">Nenhum resgate ainda.</p>
+            <p className="text-[#9ca3af] text-sm">Nenhum resgate ainda.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-[#6b7280]">
+                  <tr className="text-left text-[#d1d5db]">
                     <th className="pb-2 pr-4 font-medium">Key</th>
                     <th className="pb-2 pr-4 font-medium">Jogo</th>
                     <th className="pb-2 pr-4 font-medium">Discord ID</th>
@@ -128,7 +128,7 @@ export function DashboardStats() {
                         {redemption.gameName ?? "—"}
                       </td>
                       <td className="py-2 pr-4 text-[#9ca3af]">{redemption.usedBy ?? "—"}</td>
-                      <td className="py-2 text-[#6b7280] text-xs">
+                      <td className="py-2 text-[#9ca3af] text-xs">
                         {redemption.usedAt
                           ? new Date(redemption.usedAt).toLocaleString("pt-BR")
                           : "—"}

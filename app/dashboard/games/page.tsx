@@ -6,11 +6,34 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { isValidGameImageUrl } from "@/lib/game-url";
 import type { Game } from "@/types";
 
 type GameWithCounts = Omit<Game, "_count"> & {
   _count?: { available: number; used: number; total: number };
 };
+
+function GameCover({ imageUrl, name }: { imageUrl?: string | null; name: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!imageUrl || failed) {
+    return (
+      <div className="w-10 h-10 rounded bg-[#111111] border border-[#2a2a2a] flex items-center justify-center text-[#d1d5db]">
+        🎮
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={imageUrl}
+      alt={name}
+      className="w-10 h-10 rounded object-cover bg-[#111111] border border-[#2a2a2a]"
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 export default function GamesPage() {
   const { status } = useSession();
@@ -40,8 +63,13 @@ export default function GamesPage() {
         router.push("/login");
         return;
       }
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setMessage({ type: "error", text: data?.error ?? "Erro ao carregar jogos." });
+        return;
+      }
       setGames(data.games ?? []);
+      setMessage(null);
     } catch {
       setMessage({ type: "error", text: "Erro ao carregar jogos." });
     } finally {
@@ -74,25 +102,30 @@ export default function GamesPage() {
       setMessage({ type: "error", text: "App ID deve ser numérico." });
       return;
     }
+    const trimImageUrl = imageUrl.trim();
+    if (!isValidGameImageUrl(trimImageUrl)) {
+      setMessage({ type: "error", text: "Informe uma URL de imagem válida (http/https)." });
+      return;
+    }
     setLoading(true);
     setMessage(null);
     try {
       const res = await fetch("/api/games", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimName, appId: trimAppId, imageUrl: imageUrl.trim() }),
+        body: JSON.stringify({ name: trimName, appId: trimAppId, imageUrl: trimImageUrl }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (res.ok) {
-        setMessage({ type: "success", text: "Jogo cadastrado com sucesso!" });
+        setMessage({ type: "success", text: data?.message ?? "Jogo cadastrado com sucesso!" });
         setName("");
         setAppId("");
         setImageUrl("");
-        loadGames();
+        void loadGames();
       } else if (res.status === 401) {
         router.push("/login?error=SessionExpired");
       } else {
-        setMessage({ type: "error", text: data.error ?? "Erro ao cadastrar jogo." });
+        setMessage({ type: "error", text: data?.error ?? "Erro ao cadastrar jogo." });
       }
     } catch {
       setMessage({ type: "error", text: "Erro de rede. Tente novamente." });
@@ -106,14 +139,16 @@ export default function GamesPage() {
     setDeleting(true);
     try {
       const res = await fetch(`/api/games/${deleteId}`, { method: "DELETE" });
+      const data = await res.json().catch(() => null);
       if (res.ok) {
-        setMessage({ type: "success", text: "Jogo deletado." });
+        setMessage({ type: "success", text: data?.message ?? "Jogo deletado." });
         setDeleteId(null);
-        loadGames();
+        void loadGames();
       } else {
-        const data = await res.json();
-        setMessage({ type: "error", text: data.error ?? "Erro ao deletar." });
+        setMessage({ type: "error", text: data?.error ?? "Erro ao deletar." });
       }
+    } catch {
+      setMessage({ type: "error", text: "Erro de rede. Tente novamente." });
     } finally {
       setDeleting(false);
     }
@@ -128,21 +163,38 @@ export default function GamesPage() {
 
   async function handleEdit() {
     if (!editId) return;
+    const trimName = editName.trim();
+    const trimAppId = editAppId.trim();
+    const trimImageUrl = editImageUrl.trim();
+    if (!trimName) {
+      setMessage({ type: "error", text: "Nome do jogo é obrigatório." });
+      return;
+    }
+    if (!/^\d+$/.test(trimAppId)) {
+      setMessage({ type: "error", text: "App ID deve ser numérico." });
+      return;
+    }
+    if (!isValidGameImageUrl(trimImageUrl)) {
+      setMessage({ type: "error", text: "Informe uma URL de imagem válida (http/https)." });
+      return;
+    }
     setEditing(true);
     try {
       const res = await fetch(`/api/games/${editId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editName, appId: editAppId, imageUrl: editImageUrl }),
+        body: JSON.stringify({ name: trimName, appId: trimAppId, imageUrl: trimImageUrl }),
       });
+      const data = await res.json().catch(() => null);
       if (res.ok) {
-        setMessage({ type: "success", text: "Jogo atualizado." });
+        setMessage({ type: "success", text: data?.message ?? "Jogo atualizado." });
         setEditId(null);
-        loadGames();
+        void loadGames();
       } else {
-        const data = await res.json();
-        setMessage({ type: "error", text: data.error ?? "Erro ao editar." });
+        setMessage({ type: "error", text: data?.error ?? "Erro ao editar." });
       }
+    } catch {
+      setMessage({ type: "error", text: "Erro de rede. Tente novamente." });
     } finally {
       setEditing(false);
     }
@@ -164,23 +216,23 @@ export default function GamesPage() {
       <Card className="mb-8 bg-[#1a1a1a] border-[#2a2a2a]">
         <CardHeader>
           <CardTitle className="text-[#f3f4f6]">Adicionar Jogo</CardTitle>
-          <CardDescription className="text-[#9ca3af]">
+          <CardDescription className="text-[#d1d5db]">
             Cadastre um novo jogo para gerar keys.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[#9ca3af] mb-1">Nome do Jogo</label>
+            <label className="block text-sm font-medium text-[#d1d5db] mb-1">Nome do Jogo</label>
             <Input
               placeholder="Ex: Counter-Strike 2"
               value={name}
               onChange={(event) => setName(event.target.value)}
               disabled={loading}
-              className="bg-[#0a0a0a] border-[#2a2a2a] text-[#f3f4f6]"
+              className="bg-[#0a0a0a] border-[#2a2a2a] text-[#f3f4f6] placeholder:text-[#9ca3af]"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#9ca3af] mb-1">
+            <label className="block text-sm font-medium text-[#d1d5db] mb-1">
               Steam App ID (numérico)
             </label>
             <Input
@@ -188,11 +240,11 @@ export default function GamesPage() {
               value={appId}
               onChange={(event) => setAppId(event.target.value)}
               disabled={loading}
-              className="bg-[#0a0a0a] border-[#2a2a2a] text-[#f3f4f6]"
+              className="bg-[#0a0a0a] border-[#2a2a2a] text-[#f3f4f6] placeholder:text-[#9ca3af]"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#9ca3af] mb-1">
+            <label className="block text-sm font-medium text-[#d1d5db] mb-1">
               URL da imagem (opcional)
             </label>
             <Input
@@ -200,7 +252,7 @@ export default function GamesPage() {
               value={imageUrl}
               onChange={(event) => setImageUrl(event.target.value)}
               disabled={loading}
-              className="bg-[#0a0a0a] border-[#2a2a2a] text-[#f3f4f6]"
+              className="bg-[#0a0a0a] border-[#2a2a2a] text-[#f3f4f6] placeholder:text-[#9ca3af]"
             />
           </div>
           <Button
@@ -226,7 +278,7 @@ export default function GamesPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-[#6b7280]">
+                  <tr className="text-left text-[#d1d5db]">
                     <th className="pb-2 pr-4 font-medium">Imagem</th>
                     <th className="pb-2 pr-4 font-medium">Nome</th>
                     <th className="pb-2 pr-4 font-medium">App ID</th>
@@ -239,26 +291,11 @@ export default function GamesPage() {
                   {games.map((game) => (
                     <tr key={game.id} className="border-t border-[#2a2a2a] hover:bg-[#252525]">
                       <td className="py-2 pr-4">
-                        {game.imageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={game.imageUrl}
-                            alt={game.name}
-                            className="w-10 h-10 rounded object-cover bg-[#252525]"
-                            onError={(event) => {
-                              event.currentTarget.src = "";
-                              event.currentTarget.style.display = "none";
-                            }}
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded bg-[#252525] flex items-center justify-center text-[#6b7280]">
-                            🎮
-                          </div>
-                        )}
+                        <GameCover imageUrl={game.imageUrl} name={game.name} />
                       </td>
                       <td className="py-2 pr-4 text-[#f3f4f6]">{game.name}</td>
-                      <td className="py-2 pr-4 text-[#9ca3af]">{game.appId}</td>
-                      <td className="py-2 pr-4 text-[#9ca3af]">{game._count?.total ?? 0}</td>
+                      <td className="py-2 pr-4 text-[#d1d5db]">{game.appId}</td>
+                      <td className="py-2 pr-4 text-[#d1d5db]">{game._count?.total ?? 0}</td>
                       <td className="py-2 pr-4 text-[#10b981]">{game._count?.available ?? 0}</td>
                       <td className="py-2 flex gap-2">
                         <button
@@ -287,7 +324,7 @@ export default function GamesPage() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6 max-w-sm w-full mx-4">
             <h3 className="text-[#f3f4f6] font-semibold mb-2">Confirmar exclusão</h3>
-            <p className="text-[#9ca3af] text-sm mb-4">
+            <p className="text-[#d1d5db] text-sm mb-4">
               Tem certeza que deseja deletar este jogo?
             </p>
             <div className="flex gap-3 justify-end">
@@ -295,7 +332,7 @@ export default function GamesPage() {
                 variant="outline"
                 onClick={() => setDeleteId(null)}
                 disabled={deleting}
-                className="border-[#2a2a2a] text-[#9ca3af]"
+                className="border-[#2a2a2a] text-[#d1d5db]"
               >
                 Cancelar
               </Button>
@@ -316,27 +353,27 @@ export default function GamesPage() {
           <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6 max-w-sm w-full mx-4 space-y-4">
             <h3 className="text-[#f3f4f6] font-semibold">Editar Jogo</h3>
             <div>
-              <label className="block text-sm text-[#9ca3af] mb-1">Nome</label>
+              <label className="block text-sm text-[#d1d5db] mb-1">Nome</label>
               <Input
                 value={editName}
                 onChange={(event) => setEditName(event.target.value)}
-                className="bg-[#0a0a0a] border-[#2a2a2a] text-[#f3f4f6]"
+                className="bg-[#0a0a0a] border-[#2a2a2a] text-[#f3f4f6] placeholder:text-[#9ca3af]"
               />
             </div>
             <div>
-              <label className="block text-sm text-[#9ca3af] mb-1">App ID</label>
+              <label className="block text-sm text-[#d1d5db] mb-1">App ID</label>
               <Input
                 value={editAppId}
                 onChange={(event) => setEditAppId(event.target.value)}
-                className="bg-[#0a0a0a] border-[#2a2a2a] text-[#f3f4f6]"
+                className="bg-[#0a0a0a] border-[#2a2a2a] text-[#f3f4f6] placeholder:text-[#9ca3af]"
               />
             </div>
             <div>
-              <label className="block text-sm text-[#9ca3af] mb-1">URL da imagem</label>
+              <label className="block text-sm text-[#d1d5db] mb-1">URL da imagem</label>
               <Input
                 value={editImageUrl}
                 onChange={(event) => setEditImageUrl(event.target.value)}
-                className="bg-[#0a0a0a] border-[#2a2a2a] text-[#f3f4f6]"
+                className="bg-[#0a0a0a] border-[#2a2a2a] text-[#f3f4f6] placeholder:text-[#9ca3af]"
               />
             </div>
             <div className="flex gap-3 justify-end">
@@ -344,7 +381,7 @@ export default function GamesPage() {
                 variant="outline"
                 onClick={() => setEditId(null)}
                 disabled={editing}
-                className="border-[#2a2a2a] text-[#9ca3af]"
+                className="border-[#2a2a2a] text-[#d1d5db]"
               >
                 Cancelar
               </Button>
