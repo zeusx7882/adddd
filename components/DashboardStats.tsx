@@ -30,6 +30,12 @@ export function DashboardStats() {
           setError(json?.error ?? "Erro ao carregar estatísticas.");
           return;
         }
+
+        if (!json) {
+          setError("Erro ao carregar estatísticas.");
+          return;
+        }
+
         setData(json);
       } catch {
         setError("Erro ao carregar estatísticas.");

@@ -35,7 +35,7 @@ async function ensureBuildIfMissing() {
     return;
   }
 
-  console.log("[bootstrap] .next/BUILD_ID não encontrado. Executando build único...");
+  console.log("[bootstrap] .next/BUILD_ID not found. Running one-time build...");
   await run(npmCommand, ["run", "build"]);
 }
 
@@ -43,7 +43,7 @@ async function start() {
   try {
     await ensureBuildIfMissing();
   } catch (error) {
-    console.error("[bootstrap] Falha ao preparar build:", error);
+    console.error("[bootstrap] Failed to prepare build:", error);
     process.exit(1);
   }
 
