@@ -35,6 +35,15 @@ function generateKey(gameName: string): string {
   return `${word}-${part1}-${part2}`;
 }
 
+/**
+ * Normalizes a key exactly like the external byzeuskeys API expects it:
+ * trimmed and uppercased. Applied defensively even though generateKey()
+ * already produces uppercase output, so persisted data is always consistent.
+ */
+function normalizeKey(key: string): string {
+  return key.trim().toUpperCase();
+}
+
 const generateSchema = z.object({
   gameId: z.string().min(1),
   quantity: z.number().int().min(1).max(100),
@@ -73,7 +82,9 @@ export async function POST(req: NextRequest) {
   }
 
   const extra = Math.ceil(quantity * 0.5);
-  const candidates = Array.from({ length: quantity + extra }, () => generateKey(game.name));
+  const candidates = Array.from({ length: quantity + extra }, () =>
+    normalizeKey(generateKey(game.name))
+  );
 
   const existingKeys = await prisma.activationKey.findMany({
     where: { key: { in: candidates } },
@@ -91,17 +102,31 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  await prisma.activationKey.createMany({
-    data: toCreate.map((key) => ({ key, appId: game.appId, gameName: game.name })),
+  // appId is persisted/returned as a string, and used/usedBy/usedAt keep their
+  // schema defaults (false/null/null) so the external byzeuskeys API can find
+  // and redeem these keys using the same shape it expects.
+  const appId = String(game.appId);
+  const data = toCreate.map((key) => ({ key, appId, gameName: game.name }));
+
+  const created = await prisma.$transaction(async (tx) => {
+    await tx.activationKey.createMany({ data });
+    return tx.activationKey.findMany({
+      where: { key: { in: toCreate } },
+      orderBy: { createdAt: "desc" },
+    });
   });
 
   await prisma.auditLog.create({
     data: {
       action: "GENERATE_KEYS",
-      details: `Generated ${toCreate.length} keys for game "${game.name}" (appId: ${game.appId})`,
+      details: `Generated ${toCreate.length} keys for game "${game.name}" (appId: ${appId})`,
       adminId,
     },
   });
 
-  return NextResponse.json({ success: true, generated: toCreate.length, keys: toCreate });
+  console.info(
+    `[keys/generate] admin=${adminId} created ${toCreate.length} key(s) appId=${appId} game="${game.name}" keys=${toCreate.join(",")}`
+  );
+
+  return NextResponse.json({ success: true, generated: toCreate.length, keys: toCreate, records: created });
 }

@@ -2,6 +2,67 @@
 
 Painel administrativo para geração e gerenciamento de activation keys de jogos, com autenticação Discord OAuth2.
 
+## Persistência e compatibilidade com a API externa (byzeuskeys)
+
+Este repositório contém **apenas o painel admin**. A geração de keys grava diretamente na tabela
+`activation_keys` (modelo Prisma `ActivationKey`) do banco apontado por `DATABASE_URL`:
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `key` | `String @unique` | sempre `key.trim().toUpperCase()` antes de persistir |
+| `appId` | `String` | obrigatório, sempre salvo/retornado como `string` (mesmo se o `Game.appId` vier numérico) |
+| `gameName` | `String?` | opcional |
+| `used` | `Boolean` | default `false` |
+| `usedBy` | `String?` | `null` na criação |
+| `usedAt` | `DateTime?` | `null` na criação |
+| `createdAt` | `DateTime` | `now()` |
+
+A criação é feita em uma transação (`prisma.$transaction`) que insere via `createMany` e em
+seguida busca os registros criados, para poder devolvê-los completos na resposta do endpoint
+(`POST /api/keys/generate` retorna `{ success, generated, keys, records }`).
+
+### Limitação conhecida: `/api/keys/redeem` e `/api/keys/activated`
+
+Os endpoints `POST /api/keys/redeem` e `GET /api/keys/activated?discordId=...` mencionados nos
+requisitos **pertencem à API externa `https://byzeuskeys.shardweb.app`, que não faz parte deste
+repositório**. Não foi possível localizar sua implementação, nem existe forma segura de
+inspecioná-la ou chamá-la a partir deste ambiente sandbox (sem credenciais/rede liberada para o
+host de produção). Por isso, **não foi inventada uma implementação desses endpoints aqui**.
+
+O que este PR garante, do lado do admin, para que esses endpoints (quando implementados na API
+externa) consigam funcionar corretamente:
+
+- toda key gerada é persistida em `activation_keys` já em UPPERCASE/trim, com `appId` como
+  `string`, e `used=false` / `usedBy=null` / `usedAt=null` — o formato que uma implementação de
+  `redeem`/`activated` precisa para localizar e marcar a key como usada;
+- o admin usa o **mesmo `DATABASE_URL`** configurado na API (ver seção de variáveis abaixo);
+- os proxies existentes (`POST /api/keys/check` e `POST /api/keys/validate`, em
+  `lib/api-client.ts`) já normalizam a key com `trim()` antes de enviar à API externa;
+- uma rota de diagnóstico admin-only (`GET /api/keys/diagnostics`) permite conferir, sem expor
+  segredos, quantas keys existem, quantas estão disponíveis/usadas e a última gerada — útil para
+  confirmar que o admin e a API estão de fato lendo o mesmo banco.
+
+Exemplos de verificação manual (apenas ilustrativos — **não foram executados** neste ambiente por
+falta de acesso à API/banco de produção; substitua pelos seus valores reais e nunca cole
+`DATABASE_URL` ou tokens em tickets/PRs):
+
+```sql
+-- Confirma que a key foi persistida em UPPERCASE com os defaults corretos
+SELECT key, "appId", used, "usedBy", "usedAt", "createdAt"
+FROM activation_keys
+WHERE key = 'REDEADR-XXXX-XXXX';
+```
+
+```bash
+# Ilustrativo — requer que a API externa exponha /api/keys/redeem
+curl -v -X POST "https://byzeuskeys.shardweb.app/api/keys/redeem" \
+  -H "Content-Type: application/json" \
+  -d '{"key":"SUA_KEY","discordId":"SEU_DISCORD_ID"}'
+```
+
+Se o `curl` acima retornar `500` ou corpo vazio, o próximo passo é revisar os logs da própria API
+externa (fora deste repositório) — o painel admin não tem acesso a esses logs.
+
 ## Configuração do Discord Developer Portal
 
 1. Acesse https://discord.com/developers/applications
@@ -155,3 +216,6 @@ A geração de keys tem limite de 10 requisições por minuto por admin (impleme
 - Nunca exponha `DATABASE_URL`, `NEXTAUTH_SECRET` ou `DISCORD_CLIENT_SECRET`
 - Todas as rotas admin verificam autenticação no servidor
 - Logs de auditoria são salvos no banco para criação/exclusão de keys
+- `GET /api/keys/diagnostics` (admin-only) resume a saúde da tabela `activation_keys` (contagens
+  de total/disponíveis/usadas, breakdown por jogo, última key gerada) sem nunca retornar
+  `DATABASE_URL`, tokens ou outras credenciais
